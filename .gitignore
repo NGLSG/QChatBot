@@ -1,0 +1,51 @@
+# Prerequisites
+*.d
+
+.idea/
+__pycache__/
+devices.json
+session.token
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# 默认忽略的文件
+/shelf/
+/workspace.xml
+# Rider 忽略的文件
+/contentModel.xml
+/projectSettingsUpdater.xml
+/.idea.Choccy Engine.iml
+/modules.xml
+# 基于编辑器的 HTTP 客户端请求
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
