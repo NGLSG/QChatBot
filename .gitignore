@@ -3,7 +3,7 @@
 
 .idea/
 __pycache__/
-devices.json
+device.json
 session.token
 
 # Compiled Object files
