@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://raw.githubusercontent.com/NGLSG/ChatBot/main/img/self.png" width="200" height="200" alt="ChatBot">
+    <img src="https://github.com/NGLSG/QChatBot/raw/main/img/self.png" width="200" height="200" alt="ChatBot">
 </p>
 
 <div align="center">
