@@ -32,7 +32,6 @@ session.token
 *.lib
 
 # Executables
-*.exe
 *.out
 *.app
 
