@@ -3,12 +3,14 @@ import os
 import traceback
 import uuid
 from copy import deepcopy
-from flask import request, Flask
+
+import numpy
 import openai
 import requests
+from flask import request, Flask
 from transformers import GPT2TokenizerFast
-import Official
 
+import Official
 from text_to_image import text_to_image
 
 with open("config.json", "r", encoding='utf-8') as jsonfile:
@@ -61,8 +63,10 @@ def get_message():
             message = str(message).replace(str("[CQ:at,qq=%s]" % qq_no), '')
             # 下面你可以执行更多逻辑，这里只演示与ChatGPT对话
             msg_text = chat(message, 'G' + str(gid))  # 将消息转发给ChatGPT处理
-            send_group_message(gid, msg_text, uid)  # 将消息转发到群里
 
+            send_group_message(gid, msg_text, uid)  # 将消息转发到群里
+            id = "G" + str(gid)
+            save = True
     if request.get_json().get('post_type') == 'request':  # 收到请求消息
         print("收到请求消息")
         request_type = request.get_json().get('request_type')  # group
@@ -120,24 +124,44 @@ def chatapi():
         return json.dumps(resu, ensure_ascii=False)
 
 
+def saveContent(uid: str, session, message):
+    if uid not in chatHistory:
+        chatHistory[uid] = session['context'] + message + "\n"
+    else:
+        chatHistory[uid] += session['context'] + message + "\n"
+    data = json.dumps(chatHistory, ensure_ascii=False, indent=3)
+    with open("ConversionHistory.dat", "w", encoding='utf-8') as f:
+        f.write(data)
+
+
 # 与ChatGPT交互的方法
 def chat(msg, sessionid):
+    global chatHistory
     try:
 
         if msg.strip() == '':
             return '您好，我是人工智能助手，如果您有任何问题，请随时告诉我，我将尽力回答。\n如果您需要重置我们的会话，请回复`重置会话`'
         # 获得对话session
         session = get_chat_session(sessionid)
+        if os.path.exists("ConversionHistory.dat"):
+            data: str
+            with open('ConversionHistory.dat', 'r', encoding='utf-8') as f:
+                data = f.read()
+            chatHistory = json.loads(data)
+
         if '重置会话' == msg.strip():
             res = Official.upload("重置会话", sessionid)
+            chatHistory[sessionid] = ""
             session['context'] = ''
+            saveContent(sessionid, session, "")
             return res
         if msg.strip().startswith('保存会话'):
-            msessionid = msg.strip().replace('保存会话', '') + sessionid
+            msessionid = sessionid + ":" + msg.strip().replace('保存会话', '')
             chatHistory[msessionid] = session['context']
+            saveContent(sessionid, session, "")
             return "会话保存成功"
         if msg.strip().startswith('加载会话'):
-            msessionid = msg.strip().replace('加载会话', '') + sessionid
+            msessionid = sessionid + ":" + msg.strip().replace('加载会话', '')
             if msessionid.isspace() | len(msessionid) == 0:
                 return "你输入的会话不合法,请检查是否传入的会话名为空"
             try:
@@ -150,7 +174,7 @@ def chat(msg, sessionid):
         if '指令说明' == msg.strip():
             return "指令如下(群内需@机器人)：\n1.[重置会话] 请发送 重置会话\n2.[保存会话] 请发送保存会话 [会话ID(如果不填则为当前会话)]\n" \
                    "3.[加载会话] 请发送 加载会话[会话ID]\n4.[指令说明] 请发送 " \
-                   "指令说明\n注意：加载与保存会话是完全独立的,只能这次运行使用,下次运行时将会被清空!"
+                   "指令说明\n注意：加载与保存会话保存在本地的,而当前只能这次运行使用,不会被保存!"
         # 处理上下文逻辑
         token_limit = 4096 - config_data['chatgpt']['max_tokens'] - len(tokenizer.encode(session['preset'])) - 3
         session['context'] = session['context'] + "\n\nQ:" + msg + "\nA:"
@@ -165,6 +189,7 @@ def chat(msg, sessionid):
         # 设置预设
         msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
+
         message = chat_with_gpt(msg, sessionid)
         print("会话ID: " + str(sessionid))
         print("ChatGPT返回内容: ")
