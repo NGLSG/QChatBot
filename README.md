@@ -13,11 +13,11 @@ _✨基于[ChatGPT](https://github.com/acheong08/ChatGPT)修改的,并使用[go-
 </div>
 <p align="center">
   <img src="https://img.shields.io/badge/Author-Ge%E6%B1%81%E8%8F%8C-yellow">
-  <a href="https://raw.githubusercontent.com/NGLSG/ChatBot/main/LICENSE">
+  <a href="https://raw.githubusercontent.com/NGLSG/QChatBot/main/LICENSE">
     <img src="https://img.shields.io/github/license/NGLSG/ChatBot" alt="license">
   </a>
-  <img src="https://img.shields.io/github/stars/NGLSG/ChatBot.svg" alt="stars">
-  <img src="https://img.shields.io/github/forks/NGLSG/ChatBot.svg" alt="forks">
+  <img src="https://img.shields.io/github/stars/NGLSG/QChatBot.svg" alt="stars">
+  <img src="https://img.shields.io/github/forks/NGLSG/QChatBot.svg" alt="forks">
 </p>
 
 
