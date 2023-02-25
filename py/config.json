@@ -1,4 +1,9 @@
 {
+    "account": {
+        "email": "",
+        "password": "",
+        "session_token": ""
+    },
     "chatgpt": {
         "model": "text-davinci-003",
         "temperature": 0.9,
@@ -9,13 +14,13 @@
         "frequency_penalty": 0
     },
     "qq_bot": {
-        "qq_no": "",
+        "qq_no": "2283206366",
         "cqhttp_url": "http://localhost:8600",
         "max_length": 256,
         "image_path": "../QBot/data/images",
-        "sound_path":"../QBot/data/voices",
+        "sound_path": "../QBot/data/voices",
         "auto_confirm": false,
-        "admin_qq": ""
+        "admin_qq": "927039685"
     },
     "text_to_image": {
         "font_size": 30,

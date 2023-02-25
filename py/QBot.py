@@ -1,17 +1,33 @@
 import json
 import os
+import sys
 import traceback
 import uuid
 from copy import deepcopy
 
+import asyncio
 import numpy
 import openai
 import requests
 from flask import request, Flask
 from transformers import GPT2TokenizerFast
 
-import Official
+import ChatBot
 from text_to_image import text_to_image
+
+chatbot: ChatBot
+
+
+class Account:
+    def __init__(self):
+        self.passwd = ""
+        self.email = ""
+        self.session_token = ""
+
+    passwd = ""
+    email = ""
+    session_token = ""
+
 
 with open("config.json", "r", encoding='utf-8') as jsonfile:
     config_data = json.load(jsonfile)
@@ -36,6 +52,17 @@ chatHistory: dict = dict()
 @server.route('/', methods=["GET"])
 def index():
     return f"你好，QQ机器人逻辑处理端已启动<br/>"
+
+
+def submit(prompt) -> str:
+    res = ""
+    for data in chatbot.ask(
+            prompt,
+    ):
+        message = data["message"][len(res):]
+        print(message, end="", flush=True)
+        res = data["message"]
+    return res
 
 
 # qq消息上报接口，qq机器人监听到的消息内容将被上报到这里
@@ -150,22 +177,22 @@ def chat(msg, sessionid):
             chatHistory = json.loads(data)
 
         if '重置会话' == msg.strip():
-            res = Official.upload("重置会话", sessionid)
+            chatbot.reset_chat()
             chatHistory[sessionid] = ""
             session['context'] = ''
+
             saveContent(sessionid, session, "")
-            return res
+            return "重置成功"
         if msg.strip().startswith('保存会话'):
             msessionid = sessionid + ":" + msg.strip().replace('保存会话', '')
             chatHistory[msessionid] = session['context']
             saveContent(sessionid, session, "")
             return "会话保存成功"
         if msg.strip().startswith('加载会话'):
-            msessionid = sessionid + ":" + msg.strip().replace('加载会话', '')
-            if msessionid.isspace() | len(msessionid) == 0:
-                return "你输入的会话不合法,请检查是否传入的会话名为空"
             try:
-                session['context'] = chatHistory[msessionid]
+                chatbot.conversation_id = chatbot.config[
+                    "conversation_id"
+                ] = msg.split(" ")[1]
             except Exception as error:
                 traceback.print_exc()
                 return error
@@ -187,7 +214,7 @@ def chat(msg, sessionid):
         pos = session['context'].find('Q:')
         session['context'] = session['context'][pos:]
         # 设置预设
-        msg = session['preset'] + '\n\n' + session['context']
+        # msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
 
         message = chat_with_gpt(msg, sessionid)
@@ -211,7 +238,7 @@ def get_chat_session(sessionid):
 
 def chat_with_gpt(prompt, sessionid: str):
     try:
-        resp = Official.upload(prompt, sessionid)
+        resp = submit(prompt)
     except openai.OpenAIError as e:
         print('openai 接口报错: ' + str(e))
         resp = str(e)
@@ -339,4 +366,34 @@ def set_group_invite_request(flag, approve):
 
 
 if __name__ == '__main__':
-    server.run(port=5555, host='0.0.0.0', use_reloader=False)
+    try:
+        account = Account
+        with open("config.json", "r", encoding='utf-8') as jsonfile:
+
+            config_data = json.load(jsonfile)
+            account.email = config_data['account']['email']
+            account.passwd = config_data['account']['password']
+            account.session_token = config_data['account']['session_token']
+            if account.email.strip() == '':
+                print("账号邮箱不能为空!")
+                sys.exit()
+            if account.passwd.strip() == '':
+                chatbot = ChatBot.Chatbot(config={
+                    "email": account.email,
+                    "session_token": account.session_token
+
+                })
+
+            elif account.session_token.strip() == '':
+                chatbot = ChatBot.Chatbot(config={
+                    "email": account.email,
+                    "password": account.passwd
+
+                })
+            else:
+                print("密码或token必须提供一个!")
+                sys.exit()
+    except Exception as e:
+        print(e)
+
+server.run(port=5555, host='0.0.0.0', use_reloader=False)

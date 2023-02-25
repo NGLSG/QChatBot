@@ -37,7 +37,7 @@ cd py/
 # 使用
 请修改py/config.json中的`qq_on*`为你的机器人的qq和`*admin_qq`你的qq
 修改QBot/config.yml中的 `uin`为机器人的qq `password`为机器人的qq密码
-最后修改启动脚本中的 `api_key`为你的openAI的[密钥](https://platform.openai.com/account/api-keys)
+修改`py/config.json`中email为你的openai账号的邮箱,注意:必须提供密码或session_token(在chatgpt对话界面按F12,找到session_token(ey开头))
 
 此后你只需要运行对应系统的启动脚本即可
 

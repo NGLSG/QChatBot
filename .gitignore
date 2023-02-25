@@ -5,6 +5,7 @@
 __pycache__/
 device.json
 session.token
+*.log
 
 # Compiled Object files
 *.slo

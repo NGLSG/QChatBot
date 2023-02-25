@@ -1,1 +1,1 @@
-python3 QBot.py --api_key your_key --stream
+python3 QBot.py
