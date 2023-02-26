@@ -11,27 +11,21 @@ from flask import request, Flask
 
 from transformers import GPT2TokenizerFast
 
+import atexit
 import ChatBot
 from text_to_image import text_to_image
 
 chatbot: ChatBot
 lastSession: str = ""
-
-
-class Account:
-    def __init__(self):
-        self.passwd = ""
-        self.email = ""
-        self.session_token = ""
-
-    passwd = ""
-    email = ""
-    session_token = ""
-
-
+manager = []
+admin = ""
 with open("config.json", "r", encoding='utf-8') as jsonfile:
     config_data = json.load(jsonfile)
     qq_no = config_data['qq_bot']['qq_no']
+    manager = config_data['qq_bot']['manager']
+    admin = config_data['qq_bot']['admin']
+    if admin not in manager:
+        manager.append(admin)
 
 session_config = {
     'preset': '',
@@ -45,6 +39,44 @@ server = Flask(__name__)
 
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
 
+Conversations: dict = dict()
+
+
+def OnExit():
+    for conversation in Conversations.values():
+        print("删除:" + conversation + "\n")
+        chatbot.delete_conversation(conversation)
+
+
+atexit.register(OnExit)
+
+
+def AddManager(uid: str):
+    manager.append(uid)
+    config_data['qq_bot']['manager'] = manager
+    data=json.dumps(config_data, indent=4)
+    with open("config.json", "w", encoding='utf-8') as jsonfile:
+        jsonfile.write(data)
+
+
+def DelManager(uid: str):
+    manager.remove(uid)
+    config_data['qq_bot']['manager'] = manager
+    data=json.dumps(config_data, indent=4)
+    with open("config.json", "w", encoding='utf-8') as jsonfile:
+        jsonfile.write(data)
+
+
+class Account:
+    def __init__(self):
+        self.passwd = ""
+        self.email = ""
+        self.session_token = ""
+
+    passwd = ""
+    email = ""
+    session_token = ""
+
 
 # 测试接口，可以测试本代码是否正常启动
 @server.route('/', methods=["GET"])
@@ -52,10 +84,10 @@ def index():
     return f"你好，QQ机器人逻辑处理端已启动<br/>"
 
 
-def submit(prompt) -> str:
+def submit(prompt, sessionid) -> str:
     res = ""
     for data in chatbot.ask(
-            prompt,
+            prompt, conversation_id=sessionid
     ):
         message = data["message"][len(res):]
         print(message, end="", flush=True)
@@ -73,7 +105,7 @@ def get_message():
         print("收到私聊消息：")
         print(message)
         # 下面你可以执行更多逻辑，这里只演示与ChatGPT对话
-        msg_text = chat(message, 'P' + str(uid))  # 将消息转发给ChatGPT处理
+        msg_text = chat(message, 'P' + str(uid), str(uid))  # 将消息转发给ChatGPT处理
         send_private_message(uid, msg_text)  # 将消息返回的内容发送给用户
 
     if request.get_json().get('message_type') == 'group':  # 如果是群消息
@@ -87,7 +119,7 @@ def get_message():
             print(message)
             message = str(message).replace(str("[CQ:at,qq=%s]" % qq_no), '')
             # 下面你可以执行更多逻辑，这里只演示与ChatGPT对话
-            msg_text = chat(message, 'G' + str(gid))  # 将消息转发给ChatGPT处理
+            msg_text = chat(message, 'G' + str(gid), str(uid), True)  # 将消息转发给ChatGPT处理
 
             send_group_message(gid, msg_text, uid)  # 将消息转发到群里
             id = "G" + str(gid)
@@ -97,8 +129,8 @@ def get_message():
         uid = request.get_json().get('user_id')
         flag = request.get_json().get('flag')
         comment = request.get_json().get('comment')
-        print("配置文件 auto_confirm:" + str(config_data['qq_bot']['auto_confirm']) + " admin_qq: " + str(
-            config_data['qq_bot']['admin_qq']))
+        print("配置文件 auto_confirm:" + str(config_data['qq_bot']['auto_confirm']) + " admin: " + str(
+            config_data['qq_bot']['admin']))
         if request_type == "friend":
             print("收到加好友申请")
             print("QQ：", uid)
@@ -107,7 +139,7 @@ def get_message():
             if config_data['qq_bot']['auto_confirm']:
                 set_friend_add_request(flag, "true")
             else:
-                if str(uid) == config_data['qq_bot']['admin_qq']:  # 否则只有管理员的好友请求会通过
+                if str(uid) == config_data['qq_bot']['admin']:  # 否则只有管理员的好友请求会通过
                     print("管理员加好友请求，通过")
                     set_friend_add_request(flag, "true")
         if request_type == "group":
@@ -124,7 +156,7 @@ def get_message():
                 if config_data['qq_bot']['auto_confirm']:
                     set_group_invite_request(flag, "true")
                 else:
-                    if str(uid) == config_data['qq_bot']['admin_qq']:  # 否则只有管理员的拉群请求会通过
+                    if str(uid) == config_data['qq_bot']['admin']:  # 否则只有管理员的拉群请求会通过
                         set_group_invite_request(flag, "true")
     return "ok"
 
@@ -148,7 +180,7 @@ def chatapi():
         return json.dumps(resu, ensure_ascii=False)
 
 
-def saveContent(uid: str, session, message):
+def saveContent(uid: str, session):
     # chatHistory[uid] = session['context'] + message + "\n"
     data = json.dumps(session['context'], ensure_ascii=False, indent=3)
     with open("presets/" + uid + ".json", "w", encoding='utf-8') as f:
@@ -156,35 +188,49 @@ def saveContent(uid: str, session, message):
 
 
 # 与ChatGPT交互的方法
-def chat(msg, sessionid):
+def chat(msg, sessionid, uid="", isgroup=False):
     global lastSession
     try:
-
         if msg.strip() == '':
             return '您好，我是人工智能助手，如果您有任何问题，请随时告诉我，我将尽力回答。\n如果您需要重置我们的会话，请回复`重置会话`'
         # 获得对话session
         session = get_chat_session(sessionid)
-
-        if os.path.exists("presets/" + lastSession + ".json"):
-            data: str
-            with open("presets/" + lastSession + ".json", 'r', encoding='utf-8') as f:
-                data = f.read()
-            chatHistory = json.loads(data)
-
         if '重置会话' == msg.strip():
+            if uid not in manager and isgroup:
+                return "非常抱歉,你没有权限"
             chatbot.reset_chat()
 
             session['context'] = ''
 
             # saveContent(lastSession, session, "")
             return "重置成功"
+
         if msg.strip().startswith('保存会话'):
+            if uid not in manager and isgroup:
+                return "非常抱歉,你没有权限"
             msessionid = msg.split(" ")[1]
+            chatbot.change_title(chatbot.conversation_id, msessionid)
             # chatHistory[msessionid] = session['context']
-            print(chatbot.conversation_id)
-            saveContent(msessionid, session, "")
+            saveContent(msessionid, session)
             return "会话保存成功"
+
+        if msg.strip().startswith('添加管理'):
+            if uid != admin:
+                return "非常抱歉,你没有权限"
+            uid = msg.split(" ")[1]
+            AddManager(uid)
+            return ""
+
+        if msg.strip().startswith('删除管理'):
+            if uid != admin:
+                return "非常抱歉,你没有权限"
+            uid = msg.split(" ")[1]
+            DelManager(uid)
+            return ""
+
         if msg.strip().startswith('加载会话'):
+            if uid not in manager and isgroup:
+                return "非常抱歉,你没有权限"
             msessionid = msg.split(" ")[1]
             lastSession = msessionid
             if msessionid.isspace() | len(msessionid) == 0:
@@ -200,25 +246,36 @@ def chat(msg, sessionid):
                 traceback.print_exc()
                 return error
             return "会话以加载"
+
         if msg.strip().startswith('删除会话'):
+            if uid not in manager and isgroup:
+                return "非常抱歉,你没有权限"
             chatbot.reset_chat()
             msessionid = msg.split(" ")[1]
             lastSession = ""
             if msessionid.isspace() | len(msessionid) == 0:
                 return "你输入的会话不合法,请检查是否传入的会话名为空"
             try:
+                chatbot.delete_conversation(chatbot.conversation_id)
+                Conversations.pop(session)
                 os.remove("presets/" + msessionid + ".json")
             except Exception as error:
                 traceback.print_exc()
                 return error
             return "会话以删除"
+
         if '指令说明' == msg.strip():
             return "指令如下(群内需@机器人)：\n" \
                    "1.[重置会话] 请发送 重置会话\n" \
                    "2.[保存会话] 请发送保存会话 [会话ID(如果不填则为当前会话)]\n" \
                    "3.[加载会话] 请发送加载会话 [会话ID]" \
                    "4.[删除会话] 请发送删除会话 [会话ID]\n" \
-                   "5.[指令说明] 获取帮助"
+                   "5.[添加管理] 请发送添加管理 [QQ]\n" \
+                   "6.[删除管理] 请发送删除管理 [QQ]\n" \
+                   "7.[指令说明] 获取帮助"
+
+        if not sessionid in Conversations.keys():
+            CreateConversion(sessionid)
         # 处理上下文逻辑
         token_limit = 4096 - config_data['chatgpt']['max_tokens'] - len(tokenizer.encode(session['preset'])) - 3
         session['context'] = session['context'] + "\n\nQ:" + msg + "\nA:"
@@ -234,10 +291,11 @@ def chat(msg, sessionid):
         msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
 
-        message = chat_with_gpt(msg)
+        message = chat_with_gpt(msg, Conversations[sessionid])
         print("会话ID: " + str(sessionid))
         print("ChatGPT返回内容: ")
         print(message)
+
         return message
     except Exception as error:
         traceback.print_exc()
@@ -253,9 +311,9 @@ def get_chat_session(sessionid):
     return sessions[sessionid]
 
 
-def chat_with_gpt(prompt):
+def chat_with_gpt(prompt, sessionid):
     try:
-        resp = submit(prompt)
+        resp = submit(prompt, sessionid)
     except openai.OpenAIError as e:
         print('openai 接口报错: ' + str(e))
         resp = str(e)
@@ -382,8 +440,9 @@ def set_group_invite_request(flag, approve):
         print("处理群申请失败")
 
 
-if __name__ == '__main__':
+def CreateConversion(sessionid):
     try:
+        global chatbot
         account = Account
         with open("config.json", "r", encoding='utf-8') as jsonfile:
 
@@ -398,7 +457,6 @@ if __name__ == '__main__':
                 chatbot = ChatBot.Chatbot(config={
                     "email": account.email,
                     "session_token": account.session_token
-
                 })
 
             elif account.session_token.strip() == '':
@@ -412,5 +470,14 @@ if __name__ == '__main__':
                 sys.exit()
     except Exception as e:
         print(e)
+    res = ""
+    for data in chatbot.ask(
+            "1+1=多少?",
+    ):
+        message = data["message"][len(res):]
+        print(message, end="", flush=True)
+    Conversations[sessionid] = chatbot.conversation_id
 
-server.run(port=5555, host='0.0.0.0', use_reloader=False)
+
+if __name__ == '__main__':
+    server.run(port=5555, host='0.0.0.0', use_reloader=False)
