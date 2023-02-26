@@ -8,7 +8,7 @@
 
 _✨基于[ChatGPT](https://github.com/acheong08/ChatGPT)修改的,并使用[go-cqhttp](https://github.com/Mrs4s/go-cqhttp)转发ChatGPT的消息到QQ✨_  
 
-如果你喜欢这个项目请点一个⭐吧(注意这是ChatGPT不是GPT3,请在试了之后再评论)
+如果你喜欢这个项目请点一个⭐吧
 
 </div>
 <p align="center">
