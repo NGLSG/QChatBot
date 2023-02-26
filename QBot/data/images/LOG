@@ -58,3 +58,13 @@
 23:42:34.247009 version@stat F·[] S·0B[] Sc·[]
 23:42:34.270736 db@janitor F·2 G·0
 23:42:34.270736 db@open done T·24.3105ms
+=============== Feb 26, 2023 (+08) ===============
+08:26:26.712224 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+08:26:26.738132 version@stat F·[] S·0B[] Sc·[]
+08:26:26.738132 db@open opening
+08:26:26.738132 journal@recovery F·1
+08:26:26.738132 journal@recovery recovering @12
+08:26:26.743966 memdb@flush created L0@14 N·2 S·437B "IG\xca..\x99q\xa4,v2":"\x88a\xee..jI\f,v1"
+08:26:26.743966 version@stat F·[1] S·437B[437B] Sc·[0.25]
+08:26:26.757225 db@janitor F·3 G·0
+08:26:26.757225 db@open done T·19.0934ms

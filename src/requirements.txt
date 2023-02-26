@@ -9,5 +9,6 @@ tiktoken~=0.1.2
 setuptools~=65.5.1
 selenium~=4.8.0
 TwoCaptcha~=0.0.1
+OpenAIAuth
 undetected_chromedriver
 tls_client

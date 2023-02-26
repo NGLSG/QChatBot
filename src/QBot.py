@@ -5,17 +5,17 @@ import traceback
 import uuid
 from copy import deepcopy
 
-import asyncio
-import numpy
 import openai
 import requests
 from flask import request, Flask
+
 from transformers import GPT2TokenizerFast
 
 import ChatBot
 from text_to_image import text_to_image
 
 chatbot: ChatBot
+lastSession: str = ""
 
 
 class Account:
@@ -44,8 +44,6 @@ sessions = {}
 server = Flask(__name__)
 
 tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-
-chatHistory: dict = dict()
 
 
 # 测试接口，可以测试本代码是否正常启动
@@ -93,7 +91,6 @@ def get_message():
 
             send_group_message(gid, msg_text, uid)  # 将消息转发到群里
             id = "G" + str(gid)
-            save = True
     if request.get_json().get('post_type') == 'request':  # 收到请求消息
         print("收到请求消息")
         request_type = request.get_json().get('request_type')  # group
@@ -152,56 +149,76 @@ def chatapi():
 
 
 def saveContent(uid: str, session, message):
-    if uid not in chatHistory:
-        chatHistory[uid] = session['context'] + message + "\n"
-    else:
-        chatHistory[uid] += session['context'] + message + "\n"
-    data = json.dumps(chatHistory, ensure_ascii=False, indent=3)
-    with open("ConversionHistory.dat", "w", encoding='utf-8') as f:
+    # chatHistory[uid] = session['context'] + message + "\n"
+    data = json.dumps(session['context'], ensure_ascii=False, indent=3)
+    with open("presets/" + uid + ".json", "w", encoding='utf-8') as f:
         f.write(data)
 
 
 # 与ChatGPT交互的方法
 def chat(msg, sessionid):
-    global chatHistory
+    global lastSession
     try:
 
         if msg.strip() == '':
             return '您好，我是人工智能助手，如果您有任何问题，请随时告诉我，我将尽力回答。\n如果您需要重置我们的会话，请回复`重置会话`'
         # 获得对话session
         session = get_chat_session(sessionid)
-        if os.path.exists("ConversionHistory.dat"):
+
+        if os.path.exists("presets/" + lastSession + ".json"):
             data: str
-            with open('ConversionHistory.dat', 'r', encoding='utf-8') as f:
+            with open("presets/" + lastSession + ".json", 'r', encoding='utf-8') as f:
                 data = f.read()
             chatHistory = json.loads(data)
 
         if '重置会话' == msg.strip():
             chatbot.reset_chat()
-            chatHistory[sessionid] = ""
+
             session['context'] = ''
 
-            saveContent(sessionid, session, "")
+            # saveContent(lastSession, session, "")
             return "重置成功"
         if msg.strip().startswith('保存会话'):
-            msessionid = sessionid + ":" + msg.strip().replace('保存会话', '')
-            chatHistory[msessionid] = session['context']
-            saveContent(sessionid, session, "")
+            msessionid = msg.split(" ")[1]
+            # chatHistory[msessionid] = session['context']
+            print(chatbot.conversation_id)
+            saveContent(msessionid, session, "")
             return "会话保存成功"
         if msg.strip().startswith('加载会话'):
+            msessionid = msg.split(" ")[1]
+            lastSession = msessionid
+            if msessionid.isspace() | len(msessionid) == 0:
+                return "你输入的会话不合法,请检查是否传入的会话名为空"
             try:
-                chatbot.conversation_id = chatbot.config[
-                    "conversation_id"
-                ] = msg.split(" ")[1]
+                if not os.path.exists("presets/" + lastSession + ".json"):
+                    return "无法找到的会话:  " + lastSession
+                data: str
+                with open("presets/" + lastSession + ".json", 'r', encoding='utf-8') as f:
+                    data = f.read()
+                session['context'] = json.loads(data)
             except Exception as error:
                 traceback.print_exc()
                 return error
             return "会话以加载"
-
+        if msg.strip().startswith('删除会话'):
+            chatbot.reset_chat()
+            msessionid = msg.split(" ")[1]
+            lastSession = ""
+            if msessionid.isspace() | len(msessionid) == 0:
+                return "你输入的会话不合法,请检查是否传入的会话名为空"
+            try:
+                os.remove("presets/" + msessionid + ".json")
+            except Exception as error:
+                traceback.print_exc()
+                return error
+            return "会话以删除"
         if '指令说明' == msg.strip():
-            return "指令如下(群内需@机器人)：\n1.[重置会话] 请发送 重置会话\n2.[保存会话] 请发送保存会话 [会话ID(如果不填则为当前会话)]\n" \
-                   "3.[加载会话] 请发送 加载会话[会话ID]\n4.[指令说明] 请发送 " \
-                   "指令说明\n注意：加载与保存会话保存在本地的,而当前只能这次运行使用,不会被保存!"
+            return "指令如下(群内需@机器人)：\n" \
+                   "1.[重置会话] 请发送 重置会话\n" \
+                   "2.[保存会话] 请发送保存会话 [会话ID(如果不填则为当前会话)]\n" \
+                   "3.[加载会话] 请发送加载会话 [会话ID]" \
+                   "4.[删除会话] 请发送删除会话 [会话ID]\n" \
+                   "5.[指令说明] 获取帮助"
         # 处理上下文逻辑
         token_limit = 4096 - config_data['chatgpt']['max_tokens'] - len(tokenizer.encode(session['preset'])) - 3
         session['context'] = session['context'] + "\n\nQ:" + msg + "\nA:"
@@ -214,10 +231,10 @@ def chat(msg, sessionid):
         pos = session['context'].find('Q:')
         session['context'] = session['context'][pos:]
         # 设置预设
-        # msg = session['preset'] + '\n\n' + session['context']
+        msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
 
-        message = chat_with_gpt(msg, sessionid)
+        message = chat_with_gpt(msg)
         print("会话ID: " + str(sessionid))
         print("ChatGPT返回内容: ")
         print(message)
@@ -236,7 +253,7 @@ def get_chat_session(sessionid):
     return sessions[sessionid]
 
 
-def chat_with_gpt(prompt, sessionid: str):
+def chat_with_gpt(prompt):
     try:
         resp = submit(prompt)
     except openai.OpenAIError as e:

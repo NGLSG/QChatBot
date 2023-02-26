@@ -437,3 +437,26 @@
 23:42:34.286178 version@stat F·[3 1] S·133KiB[20KiB 113KiB] Sc·[0.75 0.00]
 23:42:34.299347 db@janitor F·6 G·0
 23:42:34.299347 db@open done T·13.2516ms
+=============== Feb 26, 2023 (+08) ===============
+08:26:26.771083 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+08:26:26.772082 version@stat F·[3 1] S·133KiB[20KiB 113KiB] Sc·[0.75 0.00]
+08:26:26.772082 db@open opening
+08:26:26.772082 journal@recovery F·1
+08:26:26.772082 journal@recovery recovering @112
+08:26:26.774597 memdb@flush created L0@114 N·36 S·4KiB "\x00\x84'\xb7,v1134":"\xf9\x84\\a,v1127"
+08:26:26.774597 version@stat F·[4 1] S·138KiB[24KiB 113KiB] Sc·[1.00 0.00]
+08:26:26.789390 db@janitor F·7 G·0
+08:26:26.789390 db@open done T·17.3084ms
+08:26:26.789390 table@compaction L0·4 -> L1·1 S·138KiB Q·1145
+08:26:26.795466 table@build created L1@117 N·813 S·133KiB "\x00Bt\xc9,v68":"\xff\xed\xe9\x18,v162"
+08:26:26.795466 version@stat F·[0 1] S·133KiB[0B 133KiB] Sc·[0.00 0.00]
+08:26:26.799299 table@compaction committed F-4 S-4KiB Ke·0 D·60 T·9.9085ms
+08:26:26.799299 table@remove removed @107
+08:26:26.799809 table@remove removed @104
+08:26:26.799809 table@remove removed @103
+08:26:26.799809 table@remove removed @95
+10:27:54.905567 memdb@flush N·188 S·31KiB
+10:27:54.918480 memdb@flush created L0@119 N·188 S·17KiB "\x00\x84'\xb7,v1153":"\xfd\xe1\xb3\t,v1257"
+10:27:54.918480 version@stat F·[1 1] S·150KiB[17KiB 133KiB] Sc·[0.25 0.00]
+10:27:54.923327 memdb@flush committed F·1 T·7.0761ms
+10:27:54.923327 journal@remove removed @115
