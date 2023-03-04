@@ -13,12 +13,13 @@ from transformers import GPT2TokenizerFast
 
 import atexit
 import ChatBot
+import ChatWithKey
 from text_to_image import text_to_image
 
-chatbot: ChatBot
 lastSession: str = ""
 manager = []
 admin = ""
+
 with open("config.json", "r", encoding='utf-8') as jsonfile:
     config_data = json.load(jsonfile)
     qq_no = config_data['qq_bot']['qq_no']
@@ -41,6 +42,8 @@ tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
 
 Conversations: dict = dict()
 
+useApi: bool = False
+
 
 def OnExit():
     for conversation in Conversations.values():
@@ -54,7 +57,7 @@ atexit.register(OnExit)
 def AddManager(uid: str):
     manager.append(uid)
     config_data['qq_bot']['manager'] = manager
-    data=json.dumps(config_data, indent=4)
+    data = json.dumps(config_data, indent=4)
     with open("config.json", "w", encoding='utf-8') as jsonfile:
         jsonfile.write(data)
 
@@ -62,7 +65,7 @@ def AddManager(uid: str):
 def DelManager(uid: str):
     manager.remove(uid)
     config_data['qq_bot']['manager'] = manager
-    data=json.dumps(config_data, indent=4)
+    data = json.dumps(config_data, indent=4)
     with open("config.json", "w", encoding='utf-8') as jsonfile:
         jsonfile.write(data)
 
@@ -72,11 +75,18 @@ class Account:
         self.passwd = ""
         self.email = ""
         self.session_token = ""
+        self.api_key = ""
+        self.proxy = ""
+        self.init = Flase
 
     passwd = ""
     email = ""
     session_token = ""
+    api_key = ""
+    proxy = ""
+    init = False
 
+account=Account
 
 # 测试接口，可以测试本代码是否正常启动
 @server.route('/', methods=["GET"])
@@ -84,7 +94,7 @@ def index():
     return f"你好，QQ机器人逻辑处理端已启动<br/>"
 
 
-def submit(prompt, sessionid) -> str:
+def submitWithoutApiKey(prompt, sessionid) -> str:
     res = ""
     for data in chatbot.ask(
             prompt, conversation_id=sessionid
@@ -92,6 +102,15 @@ def submit(prompt, sessionid) -> str:
         message = data["message"][len(res):]
         print(message, end="", flush=True)
         res = data["message"]
+    return res
+
+
+def submit(prompt) -> str:
+    res = ""
+    for data in chatbot.ask_stream(prompt):
+        # print(data, end="", flush=True)
+        print(data, end="", flush=True)
+        res += data
     return res
 
 
@@ -274,7 +293,7 @@ def chat(msg, sessionid, uid="", isgroup=False):
                    "6.[删除管理] 请发送删除管理 [QQ]\n" \
                    "7.[指令说明] 获取帮助"
 
-        if not sessionid in Conversations.keys():
+        if (not sessionid in Conversations.keys()) and (not useApi):
             CreateConversion(sessionid)
         # 处理上下文逻辑
         token_limit = 4096 - config_data['chatgpt']['max_tokens'] - len(tokenizer.encode(session['preset'])) - 3
@@ -291,7 +310,10 @@ def chat(msg, sessionid, uid="", isgroup=False):
         msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
 
-        message = chat_with_gpt(msg, Conversations[sessionid])
+        if (not useApi):
+            message = askWithoutKey(msg, Conversations[sessionid])
+        else:
+            message = ask(msg)
         print("会话ID: " + str(sessionid))
         print("ChatGPT返回内容: ")
         print(message)
@@ -311,9 +333,18 @@ def get_chat_session(sessionid):
     return sessions[sessionid]
 
 
-def chat_with_gpt(prompt, sessionid):
+def askWithoutKey(prompt, sessionid):
     try:
-        resp = submit(prompt, sessionid)
+        resp = submitWithoutApiKey(prompt, sessionid)
+    except openai.OpenAIError as e:
+        print('openai 接口报错: ' + str(e))
+        resp = str(e)
+    return resp
+
+
+def ask(prompt):
+    try:
+        resp = submit(prompt)
     except openai.OpenAIError as e:
         print('openai 接口报错: ' + str(e))
         resp = str(e)
@@ -442,41 +473,49 @@ def set_group_invite_request(flag, approve):
 
 def CreateConversion(sessionid):
     try:
-        global chatbot
-        account = Account
-        with open("config.json", "r", encoding='utf-8') as jsonfile:
+        global chatbot, useApi, account
+        if not account.init:
+            account = Account
+            with open("config.json", "r", encoding='utf-8') as jsonfile:
+                config_data = json.load(jsonfile)
+                account.email = config_data['account']['email']
+                account.passwd = config_data['account']['password']
+                account.session_token = config_data['account']['session_token']
+                account.api_key = config_data['account']['api_key']
+                account.proxy = config_data['account']['proxy']
+                account.init = True
 
-            config_data = json.load(jsonfile)
-            account.email = config_data['account']['email']
-            account.passwd = config_data['account']['password']
-            account.session_token = config_data['account']['session_token']
-            if account.email.strip() == '':
-                print("账号邮箱不能为空!")
-                sys.exit()
+        if not account.api_key.strip() == '':
+            useApi = True
+            chatbot = ChatWithKey.Chatbot(api_key=account.api_key, proxy=account.proxy)
+        elif not account.email.strip() == '':
             if account.passwd.strip() == '':
                 chatbot = ChatBot.Chatbot(config={
                     "email": account.email,
-                    "session_token": account.session_token
+                    "session_token": account.session_token,
+                    "proxy": account.proxy
                 })
-
             elif account.session_token.strip() == '':
                 chatbot = ChatBot.Chatbot(config={
                     "email": account.email,
-                    "password": account.passwd
-
+                    "password": account.passwd,
+                    "proxy": account.proxy
                 })
-            else:
-                print("密码或token必须提供一个!")
-                sys.exit()
+            res = ""
+            for data in chatbot.ask(
+                    "1+1=多少?",
+            ):
+                message = data["message"][len(res):]
+                print(message, end="", flush=True)
+            Conversations[sessionid] = chatbot.conversation_id
+        elif account.email.strip() == '':
+            print("账号邮箱不能为空!")
+            sys.exit()
+        else:
+            print("api_key或密码或token必须提供一个!")
+            sys.exit()
     except Exception as e:
         print(e)
-    res = ""
-    for data in chatbot.ask(
-            "1+1=多少?",
-    ):
-        message = data["message"][len(res):]
-        print(message, end="", flush=True)
-    Conversations[sessionid] = chatbot.conversation_id
 
 
 if __name__ == '__main__':

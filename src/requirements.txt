@@ -12,3 +12,4 @@ TwoCaptcha~=0.0.1
 OpenAIAuth
 undetected_chromedriver
 tls_client
+prompt_toolkit
