@@ -4,7 +4,7 @@
 
 <div align="center">
 
-# ChatBot
+# QChatBot
 
 _✨基于[ChatGPT](https://github.com/acheong08/ChatGPT)修改的,并使用[go-cqhttp](https://github.com/Mrs4s/go-cqhttp)转发ChatGPT的消息到QQ✨_  
 
@@ -27,7 +27,7 @@ _✨基于[ChatGPT](https://github.com/acheong08/ChatGPT)修改的,并使用[go-
 
 # 安装
 ```
-git clone https://github.com/NGLSG/ChatBot.git
+git clone https://github.com/NGLSG/QChatBot.git
 cd py/
 运行安装依赖.bat或者DependenceInstaller.sh
 ```
