@@ -274,7 +274,10 @@ def chat(msg, sessionid, uid="", isgroup=False):
         if msg.strip().startswith('删除会话'):
             if uid not in manager and isgroup:
                 return "非常抱歉,你没有权限"
-            chatbot.reset_chat()
+            if not useApi:
+                chatbot.reset_chat()
+            else:
+                chatbot.reset()
             msessionid = msg.split(" ")[1]
             lastSession = ""
             if msessionid.isspace() | len(msessionid) == 0:
