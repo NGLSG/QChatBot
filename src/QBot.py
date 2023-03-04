@@ -285,7 +285,7 @@ def chat(msg, sessionid, uid="", isgroup=False):
             try:
                 if not useApi:
                     chatbot.delete_conversation(chatbot.conversation_id)
-                Conversations.pop(session)
+                    Conversations.pop(session)
                 os.remove("presets/" + msessionid + ".json")
             except Exception as error:
                 traceback.print_exc()
