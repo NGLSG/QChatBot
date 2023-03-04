@@ -481,3 +481,42 @@
 21:34:49.490550 version@stat F·[3 1] S·167KiB[34KiB 133KiB] Sc·[0.75 0.00]
 21:34:49.504025 db@janitor F·6 G·0
 21:34:49.504025 db@open done T·16.2973ms
+=============== Mar 4, 2023 (+08) ===============
+22:44:06.708752 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+22:44:06.708752 version@stat F·[3 1] S·167KiB[34KiB 133KiB] Sc·[0.75 0.00]
+22:44:06.708752 db@open opening
+22:44:06.709280 journal@recovery F·1
+22:44:06.709280 journal@recovery recovering @124
+22:44:06.711641 memdb@flush created L0@126 N·8 S·1KiB "\x00\x84'\xb7,v1512":"ﳤ\xc3,v1509"
+22:44:06.711641 version@stat F·[4 1] S·168KiB[35KiB 133KiB] Sc·[1.00 0.00]
+22:44:06.725008 db@janitor F·7 G·0
+22:44:06.725008 db@open done T·16.2558ms
+22:44:06.725008 table@compaction L0·4 -> L1·1 S·168KiB Q·1515
+22:44:06.730762 table@build created L1@129 N·1050 S·161KiB "\x00Bt\xc9,v68":"\xff\xed\xe9\x18,v162"
+22:44:06.730762 version@stat F·[0 1] S·161KiB[0B 161KiB] Sc·[0.00 0.00]
+22:44:06.734647 table@compaction committed F-4 S-7KiB Ke·0 D·130 T·9.6391ms
+22:44:06.734647 table@remove removed @123
+22:44:06.735180 table@remove removed @120
+22:44:06.735180 table@remove removed @119
+22:44:06.735702 table@remove removed @117
+=============== Mar 4, 2023 (+08) ===============
+23:49:10.468316 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+23:49:10.468316 version@stat F·[0 1] S·161KiB[0B 161KiB] Sc·[0.00 0.00]
+23:49:10.468316 db@open opening
+23:49:10.468316 journal@recovery F·1
+23:49:10.468316 journal@recovery recovering @127
+23:49:10.470712 memdb@flush created L0@130 N·38 S·14KiB "\x00\x84'\xb7,v1521":"\xee\x8aF\x9b,v1525"
+23:49:10.471377 version@stat F·[1 1] S·176KiB[14KiB 161KiB] Sc·[0.25 0.00]
+23:49:10.484450 db@janitor F·5 G·1
+23:49:10.484450 db@janitor removing table-126
+23:49:10.484969 db@open done T·16.653ms
+=============== Mar 5, 2023 (+08) ===============
+07:25:16.537503 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+07:25:16.538020 version@stat F·[1 1] S·176KiB[14KiB 161KiB] Sc·[0.25 0.00]
+07:25:16.538020 db@open opening
+07:25:16.538020 journal@recovery F·1
+07:25:16.538020 journal@recovery recovering @131
+07:25:16.541426 memdb@flush created L0@133 N·16 S·3KiB "\x00\x84'\xb7,v1560":"\xfc\xd8QQ,v1563"
+07:25:16.541977 version@stat F·[2 1] S·179KiB[17KiB 161KiB] Sc·[0.50 0.00]
+07:25:16.556182 db@janitor F·5 G·0
+07:25:16.556182 db@open done T·18.1618ms
