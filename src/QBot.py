@@ -86,7 +86,9 @@ class Account:
     proxy = ""
     init = False
 
-account=Account
+
+account = Account
+
 
 # 测试接口，可以测试本代码是否正常启动
 @server.route('/', methods=["GET"])
@@ -217,8 +219,10 @@ def chat(msg, sessionid, uid="", isgroup=False):
         if '重置会话' == msg.strip():
             if uid not in manager and isgroup:
                 return "非常抱歉,你没有权限"
-            chatbot.reset_chat()
-
+            if not useApi:
+                chatbot.reset_chat()
+            else:
+                chatbot.reset()
             session['context'] = ''
 
             # saveContent(lastSession, session, "")
@@ -228,7 +232,8 @@ def chat(msg, sessionid, uid="", isgroup=False):
             if uid not in manager and isgroup:
                 return "非常抱歉,你没有权限"
             msessionid = msg.split(" ")[1]
-            chatbot.change_title(chatbot.conversation_id, msessionid)
+            if not useApi:
+                chatbot.change_title(chatbot.conversation_id, msessionid)
             # chatHistory[msessionid] = session['context']
             saveContent(msessionid, session)
             return "会话保存成功"

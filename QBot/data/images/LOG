@@ -78,3 +78,12 @@
 18:13:06.526245 version@stat F·[2] S·1016B[1016B] Sc·[0.50]
 18:13:06.538917 db@janitor F·4 G·0
 18:13:06.538917 db@open done T·17.6596ms
+=============== Mar 4, 2023 (+08) ===============
+21:34:49.432625 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:34:49.458461 version@stat F·[2] S·1016B[1016B] Sc·[0.50]
+21:34:49.458461 db@open opening
+21:34:49.458461 journal@recovery F·1
+21:34:49.458461 journal@recovery recovering @18
+21:34:49.459019 version@stat F·[2] S·1016B[1016B] Sc·[0.50]
+21:34:49.471794 db@janitor F·4 G·0
+21:34:49.471794 db@open done T·13.333ms
