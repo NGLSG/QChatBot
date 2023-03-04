@@ -19,7 +19,7 @@ from text_to_image import text_to_image
 lastSession: str = ""
 manager = []
 admin = ""
-
+Loaded = False
 with open("config.json", "r", encoding='utf-8') as jsonfile:
     config_data = json.load(jsonfile)
     qq_no = config_data['qq_bot']['qq_no']
@@ -210,7 +210,7 @@ def saveContent(uid: str, session):
 
 # 与ChatGPT交互的方法
 def chat(msg, sessionid, uid="", isgroup=False):
-    global lastSession
+    global lastSession, Loaded
     try:
         if msg.strip() == '':
             return '您好，我是人工智能助手，如果您有任何问题，请随时告诉我，我将尽力回答。\n如果您需要重置我们的会话，请回复`重置会话`'
@@ -269,6 +269,8 @@ def chat(msg, sessionid, uid="", isgroup=False):
             except Exception as error:
                 traceback.print_exc()
                 return error
+
+            Loaded = True
             return "会话以加载"
 
         if msg.strip().startswith('删除会话'):
@@ -316,7 +318,9 @@ def chat(msg, sessionid, uid="", isgroup=False):
         pos = session['context'].find('Q:')
         session['context'] = session['context'][pos:]
         # 设置预设
-        msg = session['preset'] + '\n\n' + session['context']
+        if Loaded:
+            Loaded = False
+            msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
 
         if (not useApi):
