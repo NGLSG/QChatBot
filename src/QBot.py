@@ -283,7 +283,8 @@ def chat(msg, sessionid, uid="", isgroup=False):
             if msessionid.isspace() | len(msessionid) == 0:
                 return "你输入的会话不合法,请检查是否传入的会话名为空"
             try:
-                chatbot.delete_conversation(chatbot.conversation_id)
+                if not useApi:
+                    chatbot.delete_conversation(chatbot.conversation_id)
                 Conversations.pop(session)
                 os.remove("presets/" + msessionid + ".json")
             except Exception as error:
