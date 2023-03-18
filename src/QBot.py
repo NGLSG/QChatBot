@@ -5,8 +5,7 @@ import traceback
 import uuid
 from copy import deepcopy
 
-import openai
-import requests
+import openai,requests
 from flask import request, Flask
 
 from transformers import GPT2TokenizerFast
@@ -109,7 +108,7 @@ def submitWithoutApiKey(prompt, sessionid) -> str:
 
 def submit(prompt) -> str:
     res = ""
-    for data in chatbot.ask_stream(prompt):
+    for data in chatbot.ask_stream(prompt,role="system"):
         # print(data, end="", flush=True)
         print(data, end="", flush=True)
         res += data
@@ -364,15 +363,7 @@ def ask(prompt):
     return resp
 
 
-# 生成图片
-def genImg(message):
-    img = text_to_image(message)
-    filename = str(uuid.uuid1()) + ".png"
-    filepath = config_data['qq_bot']['image_path'] + str(os.path.sep) + filename
-    print(filename)
-    img.save(filepath)
-    print("图片生成完毕: " + filepath)
-    return filename
+
 
 
 def genVoice(message):

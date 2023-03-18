@@ -10,6 +10,7 @@ from typing import NoReturn
 import requests
 import tiktoken
 
+import type as t
 from utils import create_completer
 from utils import create_keybindings
 from utils import create_session
@@ -27,7 +28,7 @@ class Chatbot:
         api_key: str,
         engine: str = os.environ.get("GPT_ENGINE") or "gpt-3.5-turbo",
         proxy: str = None,
-        max_tokens: int = 3000,
+        max_tokens: int = None,
         temperature: float = 0.5,
         top_p: float = 1.0,
         presence_penalty: float = 0.0,
@@ -42,7 +43,7 @@ class Chatbot:
         self.session = requests.Session()
         self.api_key = api_key
         self.system_prompt = system_prompt
-        self.max_tokens = max_tokens
+        self.max_tokens = max_tokens or (7000 if engine == "gpt-4" else 3000)
         self.temperature = temperature
         self.top_p = top_p
         self.presence_penalty = presence_penalty
@@ -63,11 +64,10 @@ class Chatbot:
                 },
             ],
         }
-        if max_tokens > 4000:
-            raise Exception("Max tokens cannot be greater than 4000")
 
         if self.get_token_count("default") > self.max_tokens:
-            raise Exception("System prompt is too long")
+            error = t.ChatbotError("System prompt is too long")
+            raise error
 
     def add_to_conversation(
         self,
@@ -99,8 +99,19 @@ class Chatbot:
         """
         Get token count
         """
-        if self.engine not in ["gpt-3.5-turbo", "gpt-3.5-turbo-0301"]:
-            raise NotImplementedError("Unsupported engine {self.engine}")
+        if self.engine not in [
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0301",
+            "gpt-4",
+            "gpt-4-0314",
+            "gpt-4-32k",
+            "gpt-4-32k-0314",
+        ]:
+            error = NotImplementedError("Unsupported engine {self.engine}")
+            raise error
+
+        tiktoken.model.MODEL_PREFIX_TO_ENCODING["gpt-4-"] = "cl100k_base"
+        tiktoken.model.MODEL_TO_ENCODING["gpt-4"] = "cl100k_base"
 
         encoding = tiktoken.encoding_for_model(self.engine)
 
@@ -111,7 +122,7 @@ class Chatbot:
             for key, value in message.items():
                 num_tokens += len(encoding.encode(value))
                 if key == "name":  # if there's a name, the role is omitted
-                    num_tokens += -1  # role is always required and always 1 token
+                    num_tokens += 1  # role is always required and always 1 token
         num_tokens += 2  # every reply is primed with <im_start>assistant
         return num_tokens
 
@@ -162,9 +173,11 @@ class Chatbot:
             stream=True,
         )
         if response.status_code != 200:
-            raise Exception(
+
+            error = t.APIConnectionError(
                 f"Error: {response.status_code} {response.reason} {response.text}",
             )
+            raise error
         response_role: str = None
         full_response: str = ""
         for line in response.iter_lines():
@@ -423,6 +436,12 @@ def main() -> NoReturn:
         default=None,
         help="Custom submit key for chatbot. For more information on keys, see README",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="gpt-3.5-turbo",
+        choices=["gpt-3.5-turbo", "gpt-4", "gpt-4-32k"],
+    )
 
     args = parser.parse_args()
 
@@ -442,6 +461,7 @@ def main() -> NoReturn:
             temperature=args.temperature,
             top_p=args.top_p,
             reply_count=args.reply_count,
+            engine=args.model,
         )
     # Check if internet is enabled
     if args.enable_internet:
