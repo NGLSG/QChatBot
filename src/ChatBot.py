@@ -21,9 +21,9 @@ from httpx import AsyncClient
 from OpenAIAuth import Authenticator
 from OpenAIAuth import Error as AuthError
 
+import typings as t
 from utils import create_completer
 from utils import create_session
-from utils import DataCollector
 from utils import get_input
 
 if __name__ == "__main__":
@@ -74,82 +74,9 @@ def logger(is_timed: bool):
     return decorator
 
 
-BASE_URL = environ.get("CHATGPT_BASE_URL") or "https://bypass.duti.tech/api/"
+BASE_URL = environ.get("CHATGPT_BASE_URL") or "https://bypass.churchless.tech/api/"
 
-
-class ErrorType:
-    # define consts for the error codes
-    USER_ERROR = -1
-    UNKNOWN_ERROR = 0
-    SERVER_ERROR = 1
-    RATE_LIMIT_ERROR = 2
-    INVALID_REQUEST_ERROR = 3
-    EXPIRED_ACCESS_TOKEN_ERROR = 4
-    INVALID_ACCESS_TOKEN_ERROR = 5
-    PROHIBITED_CONCURRENT_QUERY_ERROR = 6
-    AUTHENTICATION_ERROR = 7
-    CLOUDFLARE_ERROR = 8
-
-
-class Error(Exception):
-    """
-    Base class for exceptions in this module.
-    Error codes:
-    -1: User error
-    0: Unknown error
-    1: Server error
-    2: Rate limit error
-    3: Invalid request error
-    4: Expired access token error
-    5: Invalid access token error
-    6: Prohibited concurrent query error
-    """
-
-    source: str
-    message: str
-    code: int
-
-    def __init__(self, source: str, message: str, code: int = 0) -> None:
-        self.source = source
-        self.message = message
-        self.code = code
-
-    def __str__(self) -> str:
-        return f"{self.source}: {self.message} (code: {self.code})"
-
-    def __repr__(self) -> str:
-        return f"{self.source}: {self.message} (code: {self.code})"
-
-
-class colors:
-    """
-    Colors for printing
-    """
-
-    HEADER = "\033[95m"
-    OKBLUE = "\033[94m"
-    OKCYAN = "\033[96m"
-    OKGREEN = "\033[92m"
-    WARNING = "\033[93m"
-    FAIL = "\033[91m"
-    ENDC = "\033[0m"
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
-
-    def __init__(self) -> None:
-        if getenv("NO_COLOR"):
-            self.HEADER = ""
-            self.OKBLUE = ""
-            self.OKCYAN = ""
-            self.OKGREEN = ""
-            self.WARNING = ""
-            self.FAIL = ""
-            self.ENDC = ""
-            self.BOLD = ""
-            self.UNDERLINE = ""
-
-
-bcolors = colors()
+bcolors = t.colors()
 
 
 class Chatbot:
@@ -165,7 +92,6 @@ class Chatbot:
         parent_id: str | None = None,
         session_client=None,
         lazy_loading: bool = False,
-        collect_data: bool = False,
     ) -> None:
         """Initialize a chatbot
 
@@ -187,7 +113,6 @@ class Chatbot:
         Raises:
             Exception: _description_
         """
-        self.collect_data = collect_data
         user_home = getenv("HOME")
         if user_home is None:
             self.cache_path = osp.join(os.getcwd(), ".chatgpt_cache.json")
@@ -205,7 +130,7 @@ class Chatbot:
             cached_access_token = self.__get_cached_access_token(
                 self.config.get("email", None),
             )
-        except Error as error:
+        except t.Error as error:
             if error.code == 5:
                 raise error
             cached_access_token = None
@@ -214,7 +139,8 @@ class Chatbot:
 
         if "proxy" in config:
             if not isinstance(config["proxy"], str):
-                raise Exception("Proxy must be a string!")
+                error = TypeError("Proxy must be a string!")
+                raise error
             proxies = {
                 "http": config["proxy"],
                 "https": config["proxy"],
@@ -235,14 +161,6 @@ class Chatbot:
         self.lazy_loading = lazy_loading
 
         self.__check_credentials()
-        if self.collect_data:
-            from hashlib import md5
-
-            # Get MD5 of access token
-            self.access_token_md5 = md5(
-                self.config["access_token"].encode(),
-            ).hexdigest()
-            self.data_collector = DataCollector(user=self.access_token_md5)
 
     @logger(is_timed=True)
     def __check_credentials(self) -> None:
@@ -262,7 +180,8 @@ class Chatbot:
         elif "session_token" in self.config:
             pass
         elif "email" not in self.config or "password" not in self.config:
-            raise Exception("Insufficient login details provided!")
+            error = t.AuthenticationError("Insufficient login details provided!")
+            raise error
         if "access_token" not in self.config:
             try:
                 self.login()
@@ -329,25 +248,28 @@ class Chatbot:
                 d_access_token = base64.b64decode(s_access_token[1])
                 d_access_token = json.loads(d_access_token)
             except base64.binascii.Error:
-                raise Error(
+                error = t.Error(
                     source="__get_cached_access_token",
                     message="Invalid access token",
-                    code=ErrorType.INVALID_ACCESS_TOKEN_ERROR,
-                ) from None
+                    code=t.ErrorType.INVALID_ACCESS_TOKEN_ERROR,
+                )
+                raise error from None
             except json.JSONDecodeError:
-                raise Error(
+                error = t.Error(
                     source="__get_cached_access_token",
                     message="Invalid access token",
-                    code=ErrorType.INVALID_ACCESS_TOKEN_ERROR,
-                ) from None
+                    code=t.ErrorType.INVALID_ACCESS_TOKEN_ERROR,
+                )
+                raise error from None
 
             exp = d_access_token.get("exp", None)
             if exp is not None and exp < time.time():
-                raise Error(
+                error = t.Error(
                     source="__get_cached_access_token",
                     message="Access token expired",
-                    code=ErrorType.EXPIRED_ACCESS_TOKEN_ERROR,
+                    code=t.ErrorType.EXPIRED_ACCESS_TOKEN_ERROR,
                 )
+                raise error
 
         return access_token
 
@@ -444,11 +366,12 @@ class Chatbot:
 
         if parent_id is not None and conversation_id is None:
             log.error("conversation_id must be set once parent_id is set")
-            raise Error(
+            error = t.Error(
                 source="User",
                 message="conversation_id must be set once parent_id is set",
-                code=ErrorType.USER_ERROR,
+                code=t.ErrorType.USER_ERROR,
             )
+            raise error
 
         if conversation_id is not None and conversation_id != self.conversation_id:
             log.debug("Updating to new conversation by setting parent_id to None")
@@ -529,11 +452,12 @@ class Chatbot:
             line = str(line)[2:-1]
             if line.lower() == "internal server error":
                 log.error("Internal Server Error: %s", line)
-                raise Error(
+                error = t.Error(
                     source="ask",
                     message="Internal Server Error",
-                    code=ErrorType.SERVER_ERROR,
+                    code=t.ErrorType.SERVER_ERROR,
                 )
+                raise error
             if line == "" or line is None:
                 continue
             if "data: " in line:
@@ -554,28 +478,33 @@ class Chatbot:
                 log.error("Field missing", exc_info=True)
                 log.error(response.text)
                 if response.status_code == 401:
-                    raise Error(
+                    error = t.Error(
                         source="ask",
                         message="Permission denied",
-                        code=ErrorType.AUTHENTICATION_ERROR,
+                        code=t.ErrorType.AUTHENTICATION_ERROR,
                     )
-                if response.status_code == 403:
-                    raise Error(
+                    raise error
+                elif response.status_code == 403:
+                    error = t.Error(
                         source="ask",
                         message="Cloudflare triggered a 403 error",
-                        code=ErrorType.CLOUDFLARE_ERROR,
+                        code=t.ErrorType.CLOUDFLARE_ERROR,
                     )
-                if response.status_code == 429:
-                    raise Error(
+                    raise error
+                elif response.status_code == 429:
+                    error = t.Error(
                         source="ask",
                         message="Rate limit exceeded",
-                        code=ErrorType.RATE_LIMIT_ERROR,
+                        code=t.ErrorType.RATE_LIMIT_ERROR,
                     )
-                raise Error(
-                    source="ask",
-                    message=line,
-                    code=ErrorType.SERVER_ERROR,
-                )
+                    raise error
+                else:
+                    error = t.Error(
+                        source="ask",
+                        message=line,
+                        code=t.ErrorType.SERVER_ERROR,
+                    )
+                    raise error
             message: str = line["message"]["content"]["parts"][0]
             if message == prompt:
                 continue
@@ -601,16 +530,6 @@ class Chatbot:
             self.parent_id = parent_id
         if conversation_id is not None:
             self.conversation_id = conversation_id
-        if self.collect_data:
-            self.data_collector.collect(
-                prompt=prompt,
-                message={
-                    "message": message,
-                    "conversation_id": conversation_id,
-                    "parent_id": parent_id,
-                    "model": model,
-                },
-            )
 
     @logger(is_timed=False)
     def __check_fields(self, data: dict) -> bool:
@@ -632,11 +551,12 @@ class Chatbot:
         """
         if response.status_code != 200:
             print(response.text)
-            raise Error(
+            error = t.Error(
                 source="OpenAI",
                 message=response.text,
                 code=response.status_code,
             )
+            raise error
 
     @logger(is_timed=True)
     def get_conversations(
@@ -774,11 +694,12 @@ class AsyncChatbot(Chatbot):
         Ask a question to the chatbot
         """
         if parent_id is not None and conversation_id is None:
-            raise Error(
+            error = t.Error(
                 source="User",
                 message="conversation_id must be set once parent_id is set",
-                code=ErrorType.SERVER_ERROR,
+                code=t.ErrorType.SERVER_ERROR,
             )
+            raise error
 
         if conversation_id is not None and conversation_id != self.conversation_id:
             self.parent_id = None
@@ -967,16 +888,6 @@ def configure() -> dict:
     return config
 
 
-def exit() -> NoReturn:
-    """
-    Exit the program
-    """
-    import sys
-
-    print("Exiting program...")
-    sys.exit(0)
-
-
 @logger(is_timed=False)
 def main(config: dict) -> NoReturn:
     """
@@ -986,8 +897,6 @@ def main(config: dict) -> NoReturn:
         config,
         conversation_id=config.get("conversation_id"),
         parent_id=config.get("parent_id"),
-        collect_data=config.get("collect_analytics")
-        or input("Allow analytics? (y/n) ") == "y",
     )
 
     def handle_commands(command: str) -> bool:
@@ -1060,6 +969,9 @@ def main(config: dict) -> NoReturn:
             print()
     except (KeyboardInterrupt, EOFError):
         exit()
+    except BaseException as e:
+        error = t.CLIError("command line program unknown error")
+        raise error from e
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 import re
 from typing import Set
 
-import requests
 from prompt_toolkit import prompt
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -71,7 +70,7 @@ async def get_input_async(
     )
 
 
-def get_filtered_keys_from_object(obj: object, *keys: str) -> set[str]:
+def get_filtered_keys_from_object(obj: object, *keys: str) -> Set[str]:
     """
     Get filtered list of object variable names.
     :param keys: List of keys to include. If the first key is "not", the remaining keys will be removed from the class keys.
@@ -91,31 +90,3 @@ def get_filtered_keys_from_object(obj: object, *keys: str) -> set[str]:
         )
     # Only return specified keys that are in class_keys
     return {key for key in keys if key in class_keys}
-
-
-class DataCollector:
-    """
-    Opt in data collection
-    """
-
-    def __init__(self, user: str) -> None:
-        self.user = user
-
-    def collect(self, prompt: str, message: dict) -> None:
-        """
-        Add message to conversation.
-        """
-        request = {
-            "user": self.user,
-            "id": message["conversation_id"],
-            "message": {
-                "prompt": prompt,
-                "response": message["message"],
-            },
-        }
-        # Send request to server
-        requests.post(
-            url="https://chatgpt-analytics.herokuapp.com/analytics/message",
-            json=request,
-            timeout=6,
-        )

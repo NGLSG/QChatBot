@@ -10,7 +10,7 @@ from typing import NoReturn
 import requests
 import tiktoken
 
-import type as t
+import typings as t
 from utils import create_completer
 from utils import create_keybindings
 from utils import create_session
@@ -28,6 +28,7 @@ class Chatbot:
         api_key: str,
         engine: str = os.environ.get("GPT_ENGINE") or "gpt-3.5-turbo",
         proxy: str = None,
+        timeout: float = None,
         max_tokens: int = None,
         temperature: float = 0.5,
         top_p: float = 1.0,
@@ -39,24 +40,26 @@ class Chatbot:
         """
         Initialize Chatbot with API key (from https://platform.openai.com/account/api-keys)
         """
-        self.engine = engine
+        self.engine: str = engine
         self.session = requests.Session()
-        self.api_key = api_key
-        self.system_prompt = system_prompt
-        self.max_tokens = max_tokens or (7000 if engine == "gpt-4" else 3000)
-        self.temperature = temperature
-        self.top_p = top_p
-        self.presence_penalty = presence_penalty
-        self.frequency_penalty = frequency_penalty
-        self.reply_count = reply_count
+        self.api_key: str = api_key
+        self.system_prompt: str = system_prompt
+        self.max_tokens: int = max_tokens or (7000 if engine == "gpt-4" else 4000)
+        self.truncate_limit: int = 3500
+        self.temperature: float = temperature
+        self.top_p: float = top_p
+        self.presence_penalty: float = presence_penalty
+        self.frequency_penalty: float = frequency_penalty
+        self.reply_count: int = reply_count
+        self.timeout:float = timeout
 
         if proxy:
-            self.session.proxies = {
+            self.session.proxies: dict = {
                 "http": proxy,
                 "https": proxy,
             }
 
-        self.conversation: dict = {
+        self.conversation: dict[str, list[dict]] = {
             "default": [
                 {
                     "role": "system",
@@ -86,7 +89,7 @@ class Chatbot:
         """
         while True:
             if (
-                self.get_token_count(convo_id) > self.max_tokens
+                self.get_token_count(convo_id) > self.truncate_limit
                 and len(self.conversation[convo_id]) > 1
             ):
                 # Don't remove the first message
@@ -118,12 +121,12 @@ class Chatbot:
         num_tokens = 0
         for message in self.conversation[convo_id]:
             # every message follows <im_start>{role/name}\n{content}<im_end>\n
-            num_tokens += 4
+            num_tokens += 5
             for key, value in message.items():
                 num_tokens += len(encoding.encode(value))
                 if key == "name":  # if there's a name, the role is omitted
-                    num_tokens += 1  # role is always required and always 1 token
-        num_tokens += 2  # every reply is primed with <im_start>assistant
+                    num_tokens += 5  # role is always required and always 1 token
+        num_tokens += 5  # every reply is primed with <im_start>assistant
         return num_tokens
 
     def get_max_tokens(self, convo_id: str) -> int:
@@ -170,12 +173,12 @@ class Chatbot:
                 "user": role,
                 "max_tokens": self.get_max_tokens(convo_id=convo_id),
             },
+            timeout=kwargs.get("timeout", self.timeout),
             stream=True,
         )
         if response.status_code != 200:
-
             error = t.APIConnectionError(
-                f"Error: {response.status_code} {response.reason} {response.text}",
+                f"{response.status_code} {response.reason} {response.text}",
             )
             raise error
         response_role: str = None
@@ -502,6 +505,9 @@ def main() -> NoReturn:
         except KeyboardInterrupt:
             print("\nExiting...")
             sys.exit()
+        except BaseException as e:
+            error = t.CLIError("Command line program unknown error")
+            raise error from e
         if prompt.startswith("!"):
             try:
                 chatbot.handle_commands(prompt)
