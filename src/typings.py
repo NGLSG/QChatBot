@@ -1,16 +1,19 @@
-from abc import ABCMeta
-from os import getenv
-from platform import python_version_tuple
-
-Any = object()
-
-SUPPORT_ADD_NOTES = [int(each) for each in python_version_tuple()][0] >= 3 and [
-    int(each) for each in python_version_tuple()
-][1] >= 11
-del python_version_tuple
+"""
+A module that contains all the types used in this project
+"""
+import os
+from enum import Enum
+from typing import Union
 
 
-class ChatbotError(Exception, metaclass=ABCMeta):
+SUPPORT_ADD_NOTES = [
+    int(each) for each in __import__("platform").python_version_tuple()
+][0] >= 3 and [int(each) for each in __import__("platform").python_version_tuple()][
+    1
+] >= 11
+
+
+class ChatbotError(Exception):
     """
     Base class for all Chatbot errors in this Project
     """
@@ -24,21 +27,17 @@ class ChatbotError(Exception, metaclass=ABCMeta):
         super().__init__(*args)
 
 
-class MetaNotAllowInstance(type):
-    """
-    Metaclass that do not allow classes to be instantiated
-    """
-
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        error = ActionNotAllowedError("This class is not allowed to be instantiated")
-        raise error
-
-
 class ActionError(ChatbotError):
+    """
+    Subclass of ChatbotError
+
+    An object that throws an error because the execution of an operation is blocked
+    """
+
     def __init__(self, *args: object) -> None:
         if SUPPORT_ADD_NOTES:
             super().add_note(
-                "The current operation is not allowed, which may be intentional"
+                "The current operation is not allowed, which may be intentional",
             )
         super().__init__(*args)
 
@@ -46,119 +45,32 @@ class ActionError(ChatbotError):
 class ActionNotAllowedError(ActionError):
     """
     Subclass of ActionError
-    An object that throws an error because the execution of an unallowed operation is blocked
-    """
 
-    pass
+    An object that throws an error because the execution of an unalloyed operation is blocked
+    """
 
 
 class ActionRefuseError(ActionError):
-    pass
+    """
+    Subclass of ActionError
+
+    An object that throws an error because the execution of a refused operation is blocked.
+    """
 
 
 class CLIError(ChatbotError):
     """
     Subclass of ChatbotError
+
     The error caused by a CLI program error
     """
 
-    pass
 
-
-class Error(ChatbotError):
+class ErrorType(Enum):
     """
-    Base class for exceptions in V1 module.
-    Error codes:
-    -1: User error
-    0: Unknown error
-    1: Server error
-    2: Rate limit error
-    3: Invalid request error
-    4: Expired access token error
-    5: Invalid access token error
-    6: Prohibited concurrent query error
+    Enumeration class for different types of errors.
     """
 
-    def __init__(self, source: str, message: str, code: int = 0, *args) -> None:
-        self.source: str = source
-        self.message: str = message
-        self.code: int = code
-        super().__init__(*args)
-
-    def __str__(self) -> str:
-        return f"{self.source}: {self.message} (code: {self.code})"
-
-    def __repr__(self) -> str:
-        return f"{self.source}: {self.message} (code: {self.code})"
-
-
-class AuthenticationError(ChatbotError):
-    """
-    Subclass of ChatbotError
-    The object of the error thrown by a validation failure or exception
-    """
-
-    def __init__(self, *args: object) -> None:
-        if SUPPORT_ADD_NOTES:
-            super().add_note(
-                "Please check if your key is correct, maybe it may not be valid"
-            )
-        super().__init__(*args)
-
-
-class APIConnectionError(ChatbotError):
-    """
-    Subclass of ChatbotError
-    An exception object thrown when an API connection fails or fails to connect due to network or other miscellaneous reasons
-    """
-
-    def __init__(self, *args: object) -> None:
-        if SUPPORT_ADD_NOTES:
-            super().add_note(
-                "Please check if there is a problem with your network connection"
-            )
-        super().__init__(*args)
-
-
-class NotAllowRunning(ActionNotAllowedError):
-    """
-    Subclass of ActionNotAllowedError
-    Direct startup is not allowed for some reason
-    """
-
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
-
-
-class ResponseError(APIConnectionError):
-    """
-    Subclass of APIConnectionError
-    Error objects caused by API request errors due to network or other miscellaneous reasons
-    """
-
-    pass
-
-
-class OpenAIError(APIConnectionError):
-    """
-    Subclass of APIConnectionError
-    Error objects caused by OpenAI's own server errors
-    """
-
-    pass
-
-
-class RequestError(APIConnectionError):
-    """
-    Subclass of APIConnectionError
-    There is a problem with the API response due to network or other miscellaneous reasons, or there is no reply to the object that caused the error at all
-    """
-
-    pass
-
-
-class ErrorType(metaclass=MetaNotAllowInstance):
-    # define consts for the error codes
     USER_ERROR = -1
     UNKNOWN_ERROR = 0
     SERVER_ERROR = 1
@@ -171,7 +83,95 @@ class ErrorType(metaclass=MetaNotAllowInstance):
     CLOUDFLARE_ERROR = 8
 
 
-class colors:
+class Error(ChatbotError):
+    """
+    Base class for exceptions in V1 module.
+    """
+
+    def __init__(
+        self,
+        source: str,
+        message: str,
+        *args: object,
+        code: Union[ErrorType, int] = ErrorType.UNKNOWN_ERROR,
+    ) -> None:
+        self.source: str = source
+        self.message: str = message
+        self.code: ErrorType | int = code
+        super().__init__(*args)
+
+    def __str__(self) -> str:
+        return f"{self.source}: {self.message} (code: {self.code})"
+
+    def __repr__(self) -> str:
+        return f"{self.source}: {self.message} (code: {self.code})"
+
+
+class AuthenticationError(ChatbotError):
+    """
+    Subclass of ChatbotError
+
+    The object of the error thrown by a validation failure or exception
+    """
+
+    def __init__(self, *args: object) -> None:
+        if SUPPORT_ADD_NOTES:
+            super().add_note(
+                "Please check if your key is correct, maybe it may not be valid",
+            )
+        super().__init__(*args)
+
+
+class APIConnectionError(ChatbotError):
+    """
+    Subclass of ChatbotError
+
+    An exception object thrown when an API connection fails or fails to connect due to network or
+    other miscellaneous reasons
+    """
+
+    def __init__(self, *args: object) -> None:
+        if SUPPORT_ADD_NOTES:
+            super().add_note(
+                "Please check if there is a problem with your network connection",
+            )
+        super().__init__(*args)
+
+
+class NotAllowRunning(ActionNotAllowedError):
+    """
+    Subclass of ActionNotAllowedError
+
+    Direct startup is not allowed for some reason
+    """
+
+
+class ResponseError(APIConnectionError):
+    """
+    Subclass of APIConnectionError
+
+    Error objects caused by API request errors due to network or other miscellaneous reasons
+    """
+
+
+class OpenAIError(APIConnectionError):
+    """
+    Subclass of APIConnectionError
+
+    Error objects caused by OpenAI's own server errors
+    """
+
+
+class RequestError(APIConnectionError):
+    """
+    Subclass of APIConnectionError
+
+    There is a problem with the API response due to network or other miscellaneous reasons, or there
+    is no reply to the object that caused the error at all
+    """
+
+
+class Colors:
     """
     Colors for printing
     """
@@ -187,13 +187,13 @@ class colors:
     UNDERLINE = "\033[4m"
 
     def __init__(self) -> None:
-        if getenv("NO_COLOR"):
-            self.HEADER = ""
-            self.OKBLUE = ""
-            self.OKCYAN = ""
-            self.OKGREEN = ""
-            self.WARNING = ""
-            self.FAIL = ""
-            self.ENDC = ""
-            self.BOLD = ""
-            self.UNDERLINE = ""
+        if os.getenv("NO_COLOR"):
+            Colors.HEADER = ""
+            Colors.OKBLUE = ""
+            Colors.OKCYAN = ""
+            Colors.OKGREEN = ""
+            Colors.WARNING = ""
+            Colors.FAIL = ""
+            Colors.ENDC = ""
+            Colors.BOLD = ""
+            Colors.UNDERLINE = ""
