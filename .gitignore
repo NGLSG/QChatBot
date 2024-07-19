@@ -52,3 +52,8 @@ QBot/logs/
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+
+QBot/data/*
+QBot/session.token
+QBot/logs
+QBot/device.json

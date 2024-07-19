@@ -4,7 +4,9 @@
     "password": "",
     "session_token": "",
     "api_key": "",
-    "proxy": ""
+    "proxy": "",
+    "useVoice": true,
+    "gptSoVitsServer": "http://127.0.0.1:9880"
   },
   "chatgpt": {
     "max_tokens": 3000

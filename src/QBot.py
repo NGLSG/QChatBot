@@ -1,19 +1,19 @@
+import base64
 import json
 import os
+import subprocess
 import sys
 import traceback
 import uuid
+import wave
 from copy import deepcopy
 
-import openai,requests
+import openai, requests
 from flask import request, Flask
 
-from transformers import GPT2TokenizerFast
-
 import atexit
-import ChatBot
-import ChatWithKey
-from text_to_image import text_to_image
+
+from src.Chatbot import Chatbot
 
 lastSession: str = ""
 manager = []
@@ -37,11 +37,22 @@ sessions = {}
 # 创建一个服务，把当前这个python文件当做一个服务
 server = Flask(__name__)
 
-tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-
 Conversations: dict = dict()
 
 useApi: bool = False
+
+
+def read_wav_file(file_path):
+    with wave.open(file_path, 'rb') as wav_file:
+        params = wav_file.getparams()
+        frames = wav_file.readframes(params.nframes)
+    return params, frames
+
+
+def encode_wav_to_base64(file_path):
+    params, frames = read_wav_file(file_path)
+    encoded_frames = base64.b64encode(frames).decode('utf-8')
+    return params, encoded_frames
 
 
 def OnExit():
@@ -76,7 +87,10 @@ class Account:
         self.session_token = ""
         self.api_key = ""
         self.proxy = ""
-        self.init = Flase
+        self.init = False
+        self.vitsSoVitsModel = ""
+        self.vitsGPTModel = ""
+        self.useVoice = ""
 
     passwd = ""
     email = ""
@@ -84,6 +98,8 @@ class Account:
     api_key = ""
     proxy = ""
     init = False
+    useVoice = False
+    gptSoVitsServer = ""
 
 
 account = Account
@@ -95,21 +111,9 @@ def index():
     return f"你好，QQ机器人逻辑处理端已启动<br/>"
 
 
-def submitWithoutApiKey(prompt, sessionid) -> str:
+def submit(prompt, sid) -> str:
     res = ""
-    for data in chatbot.ask(
-            prompt, conversation_id=sessionid
-    ):
-        message = data["message"][len(res):]
-        print(message, end="", flush=True)
-        res = data["message"]
-    return res
-
-
-def submit(prompt) -> str:
-    res = ""
-    for data in chatbot.ask_stream(prompt,role="system"):
-        # print(data, end="", flush=True)
+    for data in chatbot.ask(prompt, sid, role="user"):
         print(data, end="", flush=True)
         res += data
     return res
@@ -124,9 +128,10 @@ def get_message():
         sender = request.get_json().get('sender')  # 消息发送者的资料
         print("收到私聊消息：")
         print(message)
-        # 下面你可以执行更多逻辑，这里只演示与ChatGPT对话
-        msg_text = chat(message, 'P' + str(uid), str(uid))  # 将消息转发给ChatGPT处理
-        send_private_message(uid, msg_text)  # 将消息返回的内容发送给用户
+        if account.useVoice:
+            msg_text = chat(message, 'P' + str(uid), str(uid))  # 将消息转发给ChatGPT处理
+            send_private_message(uid, msg_text)  # 将消息返回的内容发送给用户
+        send_private_voice(uid, chat(message, 'P' + str(uid), str(uid)))
 
     if request.get_json().get('message_type') == 'group':  # 如果是群消息
         gid = request.get_json().get('group_id')  # 群号
@@ -218,10 +223,8 @@ def chat(msg, sessionid, uid="", isgroup=False):
         if '重置会话' == msg.strip():
             if uid not in manager and isgroup:
                 return "非常抱歉,你没有权限"
-            if not useApi:
-                chatbot.reset_chat()
-            else:
-                chatbot.reset()
+
+            chatbot.reset(sessionid)
             session['context'] = ''
 
             # saveContent(lastSession, session, "")
@@ -231,10 +234,9 @@ def chat(msg, sessionid, uid="", isgroup=False):
             if uid not in manager and isgroup:
                 return "非常抱歉,你没有权限"
             msessionid = msg.split(" ")[1]
-            if not useApi:
-                chatbot.change_title(chatbot.conversation_id, msessionid)
             # chatHistory[msessionid] = session['context']
             saveContent(msessionid, session)
+            chatbot.saveConversion(sessionid)
             return "会话保存成功"
 
         if msg.strip().startswith('添加管理'):
@@ -256,6 +258,7 @@ def chat(msg, sessionid, uid="", isgroup=False):
                 return "非常抱歉,你没有权限"
             msessionid = msg.split(" ")[1]
             lastSession = msessionid
+
             if msessionid.isspace() | len(msessionid) == 0:
                 return "你输入的会话不合法,请检查是否传入的会话名为空"
             try:
@@ -265,6 +268,7 @@ def chat(msg, sessionid, uid="", isgroup=False):
                 with open("presets/" + lastSession + ".json", 'r', encoding='utf-8') as f:
                     data = f.read()
                 session['context'] = json.loads(data)
+                chatbot.reset(sessionid)
             except Exception as error:
                 traceback.print_exc()
                 return error
@@ -275,22 +279,12 @@ def chat(msg, sessionid, uid="", isgroup=False):
         if msg.strip().startswith('删除会话'):
             if uid not in manager and isgroup:
                 return "非常抱歉,你没有权限"
-            if not useApi:
-                chatbot.reset_chat()
-            else:
-                chatbot.reset()
+            chatbot.reset(sessionid)
             msessionid = msg.split(" ")[1]
             lastSession = ""
             if msessionid.isspace() | len(msessionid) == 0:
                 return "你输入的会话不合法,请检查是否传入的会话名为空"
-            try:
-                if not useApi:
-                    chatbot.delete_conversation(chatbot.conversation_id)
-                    Conversations.pop(session)
-                os.remove("presets/" + msessionid + ".json")
-            except Exception as error:
-                traceback.print_exc()
-                return error
+            chatbot.reset(sessionid)
             return "会话以删除"
 
         if '指令说明' == msg.strip():
@@ -306,13 +300,7 @@ def chat(msg, sessionid, uid="", isgroup=False):
         if (not sessionid in Conversations.keys()) and (not useApi):
             CreateConversion(sessionid)
         # 处理上下文逻辑
-        token_limit = 4096 - config_data['chatgpt']['max_tokens'] - len(tokenizer.encode(session['preset'])) - 3
         session['context'] = session['context'] + "\n\nQ:" + msg + "\nA:"
-        ids = tokenizer.encode(session['context'])
-        tokens = tokenizer.decode(ids[-token_limit:])
-        # 计算可发送的字符数量
-        char_limit = len(''.join(tokens))
-        session['context'] = session['context'][-char_limit:]
         # 从最早的提问开始截取
         pos = session['context'].find('Q:')
         session['context'] = session['context'][pos:]
@@ -322,14 +310,26 @@ def chat(msg, sessionid, uid="", isgroup=False):
             msg = session['preset'] + '\n\n' + session['context']
         # 与ChatGPT交互获得对话内容
 
-        if (not useApi):
-            message = askWithoutKey(msg, Conversations[sessionid])
-        else:
-            message = ask(msg)
+        message = ask(msg, sessionid)
         print("会话ID: " + str(sessionid))
         print("ChatGPT返回内容: ")
         print(message)
+        if account.useVoice:
+            url = account.gptSoVitsServer + f"?text={message}&text_language=zh"
+            response = requests.get(url)
+            # 检查响应状态码
+            if response.status_code == 200:
+                # 指定保存文件的路径和文件名
+                file_path = '../QBot/data/voices/voice.wav'
 
+                # 将响应内容写入文件
+                with open(file_path, 'wb') as file:
+                    file.write(response.content)
+
+                print(f'File successfully saved to {file_path}')
+                return "voice.wav"
+            else:
+                print(f'Failed to retrieve file. Status code: {response.status_code}')
         return message
     except Exception as error:
         traceback.print_exc()
@@ -345,35 +345,13 @@ def get_chat_session(sessionid):
     return sessions[sessionid]
 
 
-def askWithoutKey(prompt, sessionid):
+def ask(prompt, sid):
     try:
-        resp = submitWithoutApiKey(prompt, sessionid)
+        resp = submit(prompt, sid)
     except openai.OpenAIError as e:
         print('openai 接口报错: ' + str(e))
         resp = str(e)
     return resp
-
-
-def ask(prompt):
-    try:
-        resp = submit(prompt)
-    except openai.OpenAIError as e:
-        print('openai 接口报错: ' + str(e))
-        resp = str(e)
-    return resp
-
-
-
-
-
-def genVoice(message):
-    sound_url = "http://tts.youdao.com/fanyivoice?word=" + message + "&le=zh&keyfrom=speaker-target"
-    filename = str(uuid.uuid1()) + ".mp3"
-    filepath = config_data['qq_bot']['sound_path'] + str(os.path.sep) + filename
-    r = requests.get(sound_url)  # create HTTP response object
-    with open(filepath, 'wb') as f:
-        f.write(r.content)
-    return filename
 
 
 # 发送私聊消息方法 uid为qq号，message为消息内容
@@ -396,6 +374,22 @@ def send_private_message(uid, message):
 
     except Exception as error:
         print("私聊消息发送失败")
+        print(error)
+
+
+def send_private_voice(uid, voice_path):
+    try:
+        message = "[CQ:record,file=" + voice_path + "]"
+        res = requests.post(url=config_data['qq_bot']['cqhttp_url'] + "/send_private_msg",
+                            params={'user_id': int(uid), 'message': message}).json()
+        if res["status"] == "ok":
+            print("私聊消息发送成功")
+        else:
+            print(res)
+            print("私聊消息发送失败，错误信息：" + str(res['wording']))
+    except Exception as error:
+        print("私聊语音发送失败")
+        send_private_message(uid, "语音发送失败")
         print(error)
 
 
@@ -432,6 +426,22 @@ def send_group_message(gid, message, uid):
             print("群消息发送成功")
         else:
             print("群消息发送失败，错误信息：" + str(res['wording']))
+    except Exception as error:
+        print("群消息发送失败")
+        send_group_message(gid, "语音发送失败", uid)
+        print(error)
+
+
+def send_group_voice(gid, voice_path, uid):
+    try:
+        message = "[CQ:record,file=" + voice_path + "]"
+        res = requests.post(url=config_data['qq_bot']['cqhttp_url'] + "/send_group_msg",
+                            params={'group_id': int(gid), 'message': message}).json()
+        if res["status"] == "ok":
+            print("群消息发送成功")
+        else:
+            print("群消息发送失败，错误信息：" + str(res['wording']))
+
     except Exception as error:
         print("群消息发送失败")
         print(error)
@@ -487,34 +497,13 @@ def CreateConversion(sessionid):
                 account.session_token = config_data['account']['session_token']
                 account.api_key = config_data['account']['api_key']
                 account.proxy = config_data['account']['proxy']
+                account.useVoice = config_data['account']['useVoice']
+                account.gptSoVitsServer = config_data['account']['gptSoVitsServer']
                 account.init = True
 
         if not account.api_key.strip() == '':
             useApi = True
-            chatbot = ChatWithKey.Chatbot(api_key=account.api_key, proxy=account.proxy)
-        elif not account.email.strip() == '':
-            if account.passwd.strip() == '':
-                chatbot = ChatBot.Chatbot(config={
-                    "email": account.email,
-                    "session_token": account.session_token,
-                    "proxy": account.proxy
-                })
-            elif account.session_token.strip() == '':
-                chatbot = ChatBot.Chatbot(config={
-                    "email": account.email,
-                    "password": account.passwd,
-                    "proxy": account.proxy
-                })
-            res = ""
-            for data in chatbot.ask(
-                    "1+1=多少?",
-            ):
-                message = data["message"][len(res):]
-                print(message, end="", flush=True)
-            Conversations[sessionid] = chatbot.conversation_id
-        elif account.email.strip() == '':
-            print("账号邮箱不能为空!")
-            sys.exit()
+            chatbot = Chatbot(account.api_key, "https://api.deepseek.com")
         else:
             print("api_key或密码或token必须提供一个!")
             sys.exit()
