@@ -1,2 +1,2 @@
-py Qbot.py
+py BotServer.py
 pause

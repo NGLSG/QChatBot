@@ -4,3 +4,4 @@ OpenAIAuth==0.3.2
 prompt-toolkit
 requests[socks]
 tiktoken>=0.3.0
+NcatBot

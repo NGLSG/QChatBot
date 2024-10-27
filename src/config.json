@@ -3,9 +3,10 @@
     "email": "",
     "password": "",
     "session_token": "",
-    "api_key": "",
+    "api_key": "none",
     "proxy": "",
-    "useVoice": true,
+    "useVoice": false,
+    "api": "http://localhost:11434/v1/",
     "gptSoVitsServer": "http://127.0.0.1:9880"
   },
   "chatgpt": {
@@ -18,9 +19,9 @@
     "image_path": "../QBot/data/images",
     "sound_path": "../QBot/data/voices",
     "auto_confirm": false,
-    "admin": "",
+    "admin": "927039685",
     "manager": [
-      ""
+      "927039685"
     ]
   },
   "text_to_image": {

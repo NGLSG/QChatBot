@@ -6,7 +6,7 @@
 
 # QChatBot
 
-_✨基于[ChatGPT](https://github.com/acheong08/ChatGPT)修改的,并使用[go-cqhttp](https://github.com/Mrs4s/go-cqhttp)转发ChatGPT的消息到QQ✨_  
+_✨基于[LLM](https://github.com/acheong08/ChatGPT)回答的,并使用[NapCat](https://napneko.com/)转发回复的消息到QQ✨_  
 
 如果你喜欢这个项目请点一个⭐吧
 
@@ -44,4 +44,4 @@ cd py/
 此后你只需要运行对应系统的启动脚本即可
 
 # 注意
-如果你是Arm架构的机型,请将对应go-cqhttp的可执行文件修改为你的架构对应的执行文件[下载链接](https://github.com/Mrs4s/go-cqhttp/releases)
+如果你是Arm架构的机型,请将对应NapCat的可执行文件修改为你的架构对应的执行文件[下载链接](https://github.com/Mrs4s/go-cqhttp/releases)
